@@ -6,56 +6,57 @@
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-parent</artifactId>
 		<version>2.1.9.RELEASE</version>
-		<relativePath/> <!-- lookup parent from repository -->
+		<relativePath /> <!-- lookup parent from repository -->
 	</parent>
-	<groupId>com.bucg.cjcloud</groupId>
+	<groupId>com.github.gb28181</groupId>
 	<artifactId>gb28181-core</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
+	<version>0.1.1-SNAPSHOT</version>
 	<name>GB28181</name>
 	<description>gb28181-core</description>
 	<properties>
 		<java.version>1.8</java.version>
 	</properties>
-<dependencies>
-<dependency>
-<groupId>org.springframework.boot</groupId>
-<artifactId>spring-boot-starter-web</artifactId>
-</dependency>
-<dependency>
-  <groupId>org.apache.commons</groupId>
-  <artifactId>commons-lang3</artifactId>
-  </dependency>
-  <dependency>
-<groupId>com.thoughtworks.xstream</groupId>
-    <artifactId>xstream</artifactId>
-    <version>1.4.10</version>
-</dependency>
-<!-- SPI协议相关的包 -->
-<dependency>
-    <groupId>javax.sip</groupId>
-    <artifactId>jain-sip-api</artifactId>
-    <version>1.2.1.3</version>
-</dependency>
-<dependency>
-            <groupId>log4j</groupId>
-            <artifactId>log4j</artifactId>
-            <version>1.2.17</version>
-        </dependency>
-<dependency>
-    <groupId>javax.sip</groupId>
-    <artifactId>jain-sip-ri</artifactId>
-    <version>1.2.1.3</version>
-</dependency>
- <dependency>
-        <groupId>org.projectlombok</groupId>
-        <artifactId>lombok</artifactId>
-        </dependency>
- <dependency>
- 	<groupId>org.springframework.boot</groupId>
- 	<artifactId>spring-boot-configuration-processor</artifactId>
- 	<optional>true</optional>
- </dependency>
-</dependencies>
+	<dependencies>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-web</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.commons</groupId>
+			<artifactId>commons-lang3</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>com.thoughtworks.xstream</groupId>
+			<artifactId>xstream</artifactId>
+			<version>1.4.10</version>
+		</dependency>
+		<!-- SPI协议相关的包 -->
+		<dependency>
+			<groupId>javax.sip</groupId>
+			<artifactId>jain-sip-api</artifactId>
+			<version>1.2.1.3</version>
+		</dependency>
+		<dependency>
+			<groupId>log4j</groupId>
+			<artifactId>log4j</artifactId>
+			<version>1.2.17</version>
+		</dependency>
+		<dependency>
+			<groupId>javax.sip</groupId>
+			<artifactId>jain-sip-ri</artifactId>
+			<version>1.2.1.3</version>
+		</dependency>
+		<dependency>
+			<groupId>org.projectlombok</groupId>
+			<artifactId>lombok</artifactId>
+			<version>1.18.12</version><!--$NO-MVN-MAN-VER$ -->
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-configuration-processor</artifactId>
+			<optional>true</optional>
+		</dependency>
+	</dependencies>
 
 	<build>
 		<plugins>
