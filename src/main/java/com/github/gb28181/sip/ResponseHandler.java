@@ -1,10 +1,12 @@
 package com.github.gb28181.sip;
 
-import javax.sip.message.Response;
+import javax.sip.InvalidArgumentException;
+import javax.sip.ResponseEvent;
+import javax.sip.SipException;
 
 public interface ResponseHandler {
 
-	ResponseEntity processResponse(Response resp);
+  void handlerResponse(ResponseEvent evt)throws InvalidArgumentException, SipException;
 
-	boolean isSupport(Response resp);
+  boolean isSupport(ResponseEvent evt);
 }

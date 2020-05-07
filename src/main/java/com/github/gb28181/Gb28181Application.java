@@ -9,14 +9,16 @@ import com.thoughtworks.xstream.XStream;
 @SpringBootApplication
 @RestController
 public class Gb28181Application {
-  public static void main(String[] args) {
-    SpringApplication.run(Gb28181Application.class, args);
-  }
+    public static void main(String[] args) {
+        SpringApplication.run(Gb28181Application.class, args);
+    }
 
-  @Bean
-  public XStream getXStream() {
-    XStream xstream = new XStream();
-    xstream.autodetectAnnotations(true);
-    return xstream;
-  }
+    @Bean
+    public XStream getXStream() {
+        XStream xstream = new XStream();
+        xstream.autodetectAnnotations(true);
+        xstream.ignoreUnknownElements();
+        XStream.setupDefaultSecurity(xstream);
+        return xstream;
+    }
 }

@@ -2,166 +2,216 @@ package com.github.gb28181;
 
 import java.text.ParseException;
 import java.util.ArrayList;
-import java.util.List;
-import java.util.Vector;
-import javax.sdp.Connection;
+import java.util.Date;
+import java.util.Map;
+import javax.annotation.Resource;
 import javax.sdp.SdpException;
-import javax.sdp.SessionDescription;
-import javax.sdp.Version;
+import javax.sip.ClientTransaction;
+import javax.sip.Dialog;
 import javax.sip.InvalidArgumentException;
 import javax.sip.SipException;
-import javax.sip.header.Header;
+import javax.sip.SipProvider;
+import javax.sip.address.Address;
+import javax.sip.address.AddressFactory;
+import javax.sip.address.SipURI;
+import javax.sip.header.CSeqHeader;
+import javax.sip.header.CallIdHeader;
+import javax.sip.header.ContactHeader;
+import javax.sip.header.ContentTypeHeader;
+import javax.sip.header.FromHeader;
 import javax.sip.header.HeaderFactory;
-import javax.sip.header.SubjectHeader;
+import javax.sip.header.MaxForwardsHeader;
+import javax.sip.header.ToHeader;
+import javax.sip.header.ViaHeader;
+import javax.sip.message.MessageFactory;
+import javax.sip.message.Request;
+import org.apache.commons.lang3.RandomStringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-
 import com.github.gb28181.entity.Device;
+import com.github.gb28181.entity.StreamInfo;
+import com.github.gb28181.gb.CommonStoreService;
 import com.github.gb28181.support.SNManager;
+import com.github.gb28181.support.SsrcManager;
 import com.github.gb28181.xmlbean.CmdTypeEnmu;
 import com.github.gb28181.xmlbean.CommonReq;
 import com.thoughtworks.xstream.XStream;
-import gov.nist.javax.sdp.MediaDescriptionImpl;
-import gov.nist.javax.sdp.SessionDescriptionImpl;
-import gov.nist.javax.sdp.TimeDescriptionImpl;
-import gov.nist.javax.sdp.fields.AttributeField;
-import gov.nist.javax.sdp.fields.ConnectionField;
-import gov.nist.javax.sdp.fields.MediaField;
-import gov.nist.javax.sdp.fields.OriginField;
-import gov.nist.javax.sdp.fields.ProtoVersionField;
-import gov.nist.javax.sdp.fields.RepeatField;
-import gov.nist.javax.sdp.fields.SessionNameField;
-import gov.nist.javax.sdp.fields.TimeField;
-/**
- * sip请求消息 
- * <example>
- * MESSAGE sip:34020000001320000001@172.16.31.44:5060 SIP/2.0
-Via: SIP/2.0/UDP 172.16.16.71:5060;rport;branch=z9hG4bK329370617
-From: <sip:34020000002000000001@3402000000>;tag=662370617
-To: <sip:34020000001320000001@172.16.31.44:5060>
-Call-ID: 580370617
-CSeq: 1 MESSAGE
-Max-Forwards: 70
-User-Agent: LiveGBS
-Content-Length: 162
-Content-Type: Application/MANSCDP+xml
+import lombok.extern.slf4j.Slf4j;
 
-<?xml version="1.0" encoding="UTF-8"?>
-<Query>
-    <CmdType>Catalog</CmdType>
-    <SN>232370617</SN>
-    <DeviceID>34020000001320000001</DeviceID>
-</Query>
- * </example>
- * 和http相似，由请求行，请求头，请求体构成
- * 由uac产生的请求的请求头必备如下：
- * to,from,cseq,call-id,max-forword,via
- * **/
+/**
+ *
+ * 由uac产生的请求的请求头必备如下： to,from,cseq,call-id,max-forword,via 所有的请求都是非 直接响应 ers
+ **/
+@Slf4j
 @Service
 public class RequestMessageService {
-	@Autowired
-	private XStream xstream;
-	@Autowired
-	private SNManager snManager;
-	@Autowired
-	private MessageHandel messageHandel;
-	@Autowired
-	private SipServerInfo sipinfo;
-	@Autowired
+    @Autowired
+    private XStream xstream;
+    @Autowired
+    private SNManager snManager;
+    @Autowired
+    private SipServerInfo sipinfo;
+    @Autowired
     private HeaderFactory headerFactory;
+    @Autowired
+    private AddressFactory addressFactory;
+    @Resource(name = "fromAddress")
+    private Address address;
+    @Resource(name = "contactHeader")
+    private ContactHeader contactHeader;
+    @Resource(name = "sipProviderMap")
+    private Map<String, SipProvider> sipProviderMap;
+    @Autowired
+    private MessageFactory messageFactory;
+    @Autowired
+    private SsrcManager ssrcManager;
+    @Autowired
+    private CommonStoreService storeService;
 
-	 public void getCatalog(Device device) throws ParseException, InvalidArgumentException, SipException {
-		 CommonReq req = new CommonReq(CmdTypeEnmu.Catalog, snManager.getSN(), device.getDeviceId());
-		 String message = xstream.toXML(req);
-		 messageHandel.sendMessage(device.getAddress(), device.getDeviceId(), message);
-		 
-	 }
-	 
-	 
-	 public void  play(Device device,String channelId) throws SdpException, ParseException, InvalidArgumentException, SipException {
-	   SubjectHeader header = headerFactory.createSubjectHeader(device.getDeviceId()+":001,"+sipinfo.getDomain()+":001");
-	   List<Header> list = new ArrayList<>();
-	   list.add(header);
-	    String content = "v=0\r\n" + 
-            "o=34020000001320000001 0 0 IN IP4 172.16.16.103\r\n" + 
-            "s=Play\r\n" + 
-            "c=IN IP4 172.16.16.103\r\n" + 
-            "t=0 0\r\n" + 
-            "m=video 6000 RTP/AVP 96 98 97\r\n" + 
-            "a=recvonly\r\n" + 
-            "a=rtpmap:96 PS/90000\r\n" + 
-            "a=rtpmap:98 H264/90000\r\n" + 
-            "a=rtpmap:97 MPEG4/90000\r\n" + 
-            "y=0100000001\r\n" + 
-            "f=";
-	   messageHandel.sendMesdsageINVITE(device.getAddress(), device.getDeviceId(), content, list); 
-	 }
-	 private SessionDescription createSessionDescription() throws SdpException {
-	   SessionDescriptionImpl session=new SessionDescriptionImpl();
-       Version version = new ProtoVersionField();
-       version.setVersion(0);
-       session.setVersion(version);
-       
-       OriginField origin= new OriginField();
-       origin.setAddress(sipinfo.getIp());
-       origin.setUsername(sipinfo.getUsername());
-       origin.setSessionId(0);
-       origin.setSessionVersion(0);
-       origin.setAddressType("IP4");
-       origin.setNettype("IN");
-       session.setOrigin(origin);
-       
-       SessionNameField nameField = new SessionNameField();
-       nameField.setSessionName("Play");
-       session.setSessionName(nameField);
-       
-       Connection connect = new ConnectionField();
-       connect.setAddress(sipinfo.getIp());
-       connect.setAddressType("IP4");
-       connect.setNetworkType("IN");
-       session.setConnection(connect);
-       TimeDescriptionImpl impl = new TimeDescriptionImpl();
-       Vector<String> RepeatTime = new Vector<>();
-         RepeatField field = new RepeatField();
-      
-      // impl.setRepeatTimes(RepeatTime);
-       TimeField timeField = new TimeField();
-       timeField.setStartTime(0);
-       timeField.setStopTime(0);
-       impl.setTime(timeField);
-       Vector<Object> vector = new Vector<>();
-       vector.add(impl);
-       session.setTimeDescriptions(vector);
-       
-       MediaDescriptionImpl mediaDescriptionImpl = new MediaDescriptionImpl();
-     MediaField mediaField = new MediaField();
-     mediaField.setMediaType("video");
-     mediaField.setPort(6000);
-     mediaField.setProtocol("RTP/AVP");
-     Vector<Object> mediaFormat = new Vector<>();
-     mediaFormat.add("96");
-     mediaFormat.add("97");
-     mediaFormat.add("98");
-     mediaField.setMediaFormats(mediaFormat);
-       mediaDescriptionImpl.setMedia(mediaField);
-       Vector<Object> vector2 = new Vector<>();
-       vector2.add(mediaDescriptionImpl);
-       session.setMediaDescriptions(vector2);
-       Vector<AttributeField> v3 = new Vector<>();
-       AttributeField a1 = new AttributeField();
-       a1.setValue("recvonly");;
-       v3.add(a1);
-       AttributeField a2 = new AttributeField();
-       a2.setValue("rtpmap:96 PS/90000");;
-       v3.add(a2);
-       AttributeField a3 = new AttributeField();
-       a3.setValue("rtpmap:98 H264/90000");;
-       v3.add(a3);
-       AttributeField a4 = new AttributeField();
-       a4.setValue("rtpmap:97 MPEG4/90000");;
-       v3.add(a4);
-       mediaDescriptionImpl.setAttributes(v3);
-      return session;
-	   
-	 }
+    public void sendCommonMessage(Device device, CmdTypeEnmu cmdtype)
+            throws ParseException, InvalidArgumentException, SipException {
+        CommonReq req = new CommonReq(cmdtype, snManager.getSN(), device.getDeviceId());
+        Request request = createRequest(device, Request.MESSAGE, device.getDeviceId());
+        request.setContent(xstream.toXML(req),
+                headerFactory.createContentTypeHeader("Application", "MANSCDP+xml"));
+        sendRequest(request, device.getTransport());
+    }
+
+    /**
+     * 
+     * @return streamInfo
+     */
+    public StreamInfo sendInviate(Device device, String channelId)
+            throws SdpException, ParseException, InvalidArgumentException, SipException {
+        Address concatAddress =
+                addressFactory.createAddress(addressFactory.createSipURI(sipinfo.getId(),
+                        sipinfo.getIp().concat(":").concat(String.valueOf(sipinfo.getPort()))));
+        Request request = createRequest(device, Request.INVITE, channelId);
+        request.addHeader(headerFactory.createContactHeader(concatAddress));
+        ContentTypeHeader contentTypeHeader =
+                headerFactory.createContentTypeHeader("Application", "SDP");
+
+        String ssrc = ssrcManager.getSsrc(true);
+
+        StreamInfo streamInfo = new StreamInfo();
+        streamInfo.setChannelId(channelId);
+        streamInfo.setCreateDate(new Date());
+        streamInfo.setTransport(device.getTransport());
+        streamInfo.setSsrc(ssrc);
+
+        String content = createPlaySessionDescription(sipinfo.getId(), sipinfo.getIp(),
+                sipinfo.getMeidaIp(), sipinfo.getMediaPort(),
+                device.getTransport().equalsIgnoreCase(Constants.TCP), true, "Play", ssrc);
+        request.setContent(content, contentTypeHeader);
+
+        sendRequest(request, device.getTransport());
+
+        CallIdHeader callIdHeader = (CallIdHeader) request.getHeader(CallIdHeader.NAME);
+        streamInfo.setCallId(callIdHeader.getCallId());
+        storeService.saveStreamInfo(streamInfo);
+        return streamInfo;
+    }
+
+    public void sendBye(String callId) throws SipException {
+        StreamInfo streamInfo = storeService.getStreamInfo(callId);
+        Dialog dialog = streamInfo.getDialog();
+        if (dialog != null) {
+            Request request = dialog.createRequest(Request.BYE);
+            ClientTransaction clientTransaction =
+                    getSipProvider(request).getNewClientTransaction(request);
+            dialog.sendRequest(clientTransaction);
+            log.info("sendRequest >>> {}", request);
+            storeService.removeStreamInfo(callId);
+        }
+
+    }
+
+    private void sendRequest(Request request, String protocol) throws SipException {
+        SipProvider sipProvider = getSipProvider(protocol);
+        sipProvider.sendRequest(request);
+
+    }
+
+    public Request createRequest(Device device, String method, String channelId)
+            throws ParseException, SipException, InvalidArgumentException {
+        SipURI sipuri = addressFactory.createSipURI(device.getDeviceId(), device.getAddress());
+
+        ArrayList<ViaHeader> viaHeaders = new ArrayList<ViaHeader>();
+        ViaHeader viaHeader = headerFactory.createViaHeader(device.getReceived(), device.getRport(),
+                device.getTransport(), null);
+        viaHeaders.add(viaHeader);
+
+        SipURI touri = addressFactory.createSipURI(channelId, device.getAddress());
+        Address toAddress = addressFactory.createAddress(touri);
+        ToHeader toheader = headerFactory.createToHeader(toAddress, null);
+
+        SipProvider sipProvider = getSipProvider(device.getTransport());
+        CallIdHeader callId = sipProvider.getNewCallId();
+        CSeqHeader cSeqHeader = headerFactory.createCSeqHeader(1L, method);
+
+        MaxForwardsHeader maxForwardsHeader = headerFactory.createMaxForwardsHeader(70);
+
+        Request request = messageFactory.createRequest(sipuri, method, callId, cSeqHeader,
+                getFromHeader(), toheader, viaHeaders, maxForwardsHeader);
+        return request;
+
+
+    }
+
+    private SipProvider getSipProvider(String protocol) {
+        SipProvider sp = null;
+        if (protocol.equals(Constants.TCP)) {
+            sp = sipProviderMap.get(Constants.TCP_SIP_PROVIDER);
+        } else {
+            sp = sipProviderMap.get(Constants.UDP_SIP_PROVIDER);
+        }
+        return sp;
+    }
+
+    private SipProvider getSipProvider(Request request) {
+        ViaHeader header = (ViaHeader) request.getHeader(ViaHeader.NAME);
+        return getSipProvider(header.getProtocol());
+
+
+    }
+
+
+    /**
+     * SDP 创建
+     * 
+     * @param sessionId 源id 本机sip编码
+     * @param oip 信令服务器ip
+     * @param mIp 媒体服务器ip
+     * @param mPort 媒体服务器端口
+     * @param isTcp tcp?udp
+     * @param sessionName play
+     * @param ssrc 序列号
+     * 
+     * 
+     */
+    private static String createPlaySessionDescription(String sessionId, String oip, String mIp,
+            int mPort, boolean isTcp, boolean isActive, String sessionName, String ssrc) {
+        StringBuffer content = new StringBuffer(200);
+        content.append("v=0\r\n");
+        content.append("o=" + sessionId + " 0 0 IN IP4 " + oip + "\r\n");
+        content.append("s=" + sessionName + "\r\n");
+        content.append("c=IN IP4 " + mIp + "\r\n");
+        content.append("t=0 0\r\n");
+        content.append("m=video " + mPort + " " + (isTcp ? "TCP/" : "") + "RTP/AVP 96 98 97\r\n");
+        content.append("a=recvonly\r\n");
+        content.append("a=rtpmap:96 PS/90000\r\n");
+        content.append("a=rtpmap:98 H264/90000\r\n");
+        content.append("a=rtpmap:97 MPEG4/90000\r\n");
+        if (isTcp) {
+            content.append("a=setup:" + (isActive ? "active\r\n" : "passive\r\n"));
+            content.append("a=connection:new\r\n");
+        }
+        content.append("y=" + ssrc + "\r\n");
+        return content.toString();
+    }
+
+    public FromHeader getFromHeader() throws ParseException {
+        return headerFactory.createFromHeader(address, RandomStringUtils.randomNumeric(5));
+
+    }
 }

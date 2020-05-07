@@ -1,9 +1,11 @@
 package com.github.gb28181.sip;
 
 import java.text.ParseException;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.TooManyListenersException;
-
 import javax.sip.InvalidArgumentException;
 import javax.sip.ListeningPoint;
 import javax.sip.ObjectInUseException;
@@ -17,77 +19,98 @@ import javax.sip.address.AddressFactory;
 import javax.sip.address.SipURI;
 import javax.sip.header.ContactHeader;
 import javax.sip.header.HeaderFactory;
+import javax.sip.header.MaxForwardsHeader;
 import javax.sip.message.MessageFactory;
-
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-
+import org.springframework.context.annotation.Scope;
+import com.github.gb28181.Constants;
 import com.github.gb28181.SipServerInfo;
-import com.github.gb28181.process.RequestProcessFactories;
+import com.github.gb28181.gb.DelegatingRequestHandler;
+import com.github.gb28181.gb.DelegatingRespHandler;
 
 @Configuration
 public class SipLayerConfiguation {
 
-	@Bean
-	public HeaderFactory createHeaderFactory() throws PeerUnavailableException {
+  @Bean
+  public HeaderFactory createHeaderFactory() throws PeerUnavailableException {
 
-		return SipFactory.getInstance().createHeaderFactory();
+    return SipFactory.getInstance().createHeaderFactory();
 
-	}
+  }
 
-	@Bean
-	public AddressFactory createAddressFactory() throws PeerUnavailableException {
+  @Bean
+  public AddressFactory createAddressFactory() throws PeerUnavailableException {
 
-		return SipFactory.getInstance().createAddressFactory();
-	}
+    return SipFactory.getInstance().createAddressFactory();
+  }
 
-	@Bean
-	public MessageFactory createMessageFactory() throws PeerUnavailableException {
+  @Bean
+  public MessageFactory createMessageFactory() throws PeerUnavailableException {
 
-		return SipFactory.getInstance().createMessageFactory();
-	}
+    return SipFactory.getInstance().createMessageFactory();
+  }
 
-	@Bean(name = "fromAddress")
-	public Address createAddress(AddressFactory addressFactory, SipServerInfo sipinfo) throws ParseException {
-		SipURI from = addressFactory.createSipURI(sipinfo.getUsername(), sipinfo.getIp() + ":" + sipinfo.getPort());
-		Address fromNameAddress = addressFactory.createAddress(from);
-		fromNameAddress.setDisplayName(sipinfo.getUsername());
-		return fromNameAddress;
-	}
+  @Bean(name = "fromAddress")
+  public Address createAddress(AddressFactory addressFactory, SipServerInfo sipinfo)
+      throws ParseException {
+    SipURI from = addressFactory.createSipURI(sipinfo.getRealm(),
+        sipinfo.getIp() + ":" + sipinfo.getPort());
+    Address fromNameAddress = addressFactory.createAddress(from);
+    fromNameAddress.setDisplayName(sipinfo.getRealm());
+    return fromNameAddress;
+  }
 
-	@Bean(name = "contactHeader")
-	public ContactHeader getContactHeader(AddressFactory addressFactory, SipServerInfo sipinfo,
-			HeaderFactory headerFactory) throws ParseException {
-		SipURI contactURI = addressFactory.createSipURI(sipinfo.getUsername(), sipinfo.getPort() + "");
-		Address contactAddress = addressFactory.createAddress(contactURI);
-		contactAddress.setDisplayName(sipinfo.getUsername());
-		ContactHeader contactHeader = headerFactory.createContactHeader(contactAddress);
-		return contactHeader;
-	}
+  @Bean(name = "contactHeader")
+  public ContactHeader getContactHeader(AddressFactory addressFactory, SipServerInfo sipinfo,
+      HeaderFactory headerFactory) throws ParseException {
+    SipURI contactURI = addressFactory.createSipURI(sipinfo.getRealm(), sipinfo.getPort() + "");
+    Address contactAddress = addressFactory.createAddress(contactURI);
+    contactAddress.setDisplayName(sipinfo.getRealm());
+    ContactHeader contactHeader = headerFactory.createContactHeader(contactAddress);
+    return contactHeader;
+  }
 
-	/**
-	 * 未设置addlistener
-	 */
-	@Bean
-	public SipProvider createSipProvider(SipServerInfo info) throws TooManyListenersException,
-			TransportNotSupportedException, InvalidArgumentException, PeerUnavailableException, ObjectInUseException {
-		String ip = info.getIp();
-		int port = info.getPort();
-		SipFactory sipFactory = SipFactory.getInstance();
-		Properties properties = new Properties();
-		properties.setProperty("javax.sip.STACK_NAME", "GB28181-2016");
-		properties.setProperty("javax.sip.IP_ADDRESS", ip);
-		SipStack sipStack = sipFactory.createSipStack(properties);
-		ListeningPoint tcp = sipStack.createListeningPoint(ip, port, "tcp");
-		ListeningPoint udp = sipStack.createListeningPoint(ip, port, "udp");
-		SipProvider sipProvider = sipStack.createSipProvider(tcp);
-		sipProvider = sipStack.createSipProvider(udp);
-		return sipProvider;
-	}
+  @Bean
+  @Scope("prototype")
+  public MaxForwardsHeader getDefaultMaxForwardsHeader(HeaderFactory headerFactory)
+      throws InvalidArgumentException {
+    return headerFactory.createMaxForwardsHeader(70);
+  }
 
-	@Bean
-	public RequestHandler getDelegatingRequestProcess() {
-		return RequestProcessFactories.createDelegatingRequestProcess();
+  /**
+   * 未设置addlistener
+   */
+  @Bean(name="sipProviderMap")
+  public  Map<String,SipProvider> createSipProvider(SipServerInfo info)
+      throws TooManyListenersException, TransportNotSupportedException, InvalidArgumentException,
+      PeerUnavailableException, ObjectInUseException {
+    String ip = info.getIp();
+    int port = info.getPort();
+    SipFactory sipFactory = SipFactory.getInstance();
+    Properties properties = new Properties();
+    properties.setProperty("javax.sip.STACK_NAME", "GB28181-2016");
+    properties.setProperty("javax.sip.IP_ADDRESS", ip);
+    SipStack sipStack = sipFactory.createSipStack(properties);
+    ListeningPoint tcp = sipStack.createListeningPoint(ip, port, "tcp");
+    ListeningPoint udp = sipStack.createListeningPoint(ip, port, "udp");
+    SipProvider tcpSipProvider = sipStack.createSipProvider(tcp);
+    SipProvider udpSipProvider = sipStack.createSipProvider(udp);
+    Map<String,SipProvider> map=new HashMap<>();
+    map.put(Constants.TCP_SIP_PROVIDER, tcpSipProvider);
+    map.put(Constants.UDP_SIP_PROVIDER, udpSipProvider);
+    return map;
+  }
 
-	}
+  @Bean(name = "delegatingRequestHandler")
+  public RequestHandler getDelegatingRequestProcess(List<RequestHandler> list) {
+    return new DelegatingRequestHandler(list);
+
+  }
+
+  @Bean(name = "delegatingResptHandler")
+  public ResponseHandler getDelegatingResptHandler(List<ResponseHandler> list) {
+    return new DelegatingRespHandler(list);
+
+  }
 }

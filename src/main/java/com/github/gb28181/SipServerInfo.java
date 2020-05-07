@@ -8,8 +8,12 @@ import lombok.Data;
 @Data
 @ConfigurationProperties(prefix = "sipinfo")
 public class SipServerInfo {
-	private String username;
-	private String ip;
-	private int port;
-	private String domain;
+  private String id;
+  private String ip;
+  private int port;
+  private String realm;
+  private String password;
+  private int heart;
+  private String meidaIp;
+  private int mediaPort;
 }
