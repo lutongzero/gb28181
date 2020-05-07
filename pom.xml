@@ -33,7 +33,7 @@
 		<dependency>
 			<groupId>com.thoughtworks.xstream</groupId>
 			<artifactId>xstream</artifactId>
-			<version>1.4.10</version>
+			<version>1.4.10-java7</version>
 		</dependency>
 		<!-- SPI协议相关的包 -->
 		<dependency>
