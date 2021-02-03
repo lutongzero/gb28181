@@ -24,8 +24,8 @@ import javax.sip.message.MessageFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Scope;
-import com.github.gb28181.Constants;
-import com.github.gb28181.SipServerInfo;
+import com.github.gb28181.config.Constants;
+import com.github.gb28181.config.SipServerInfo;
 import com.github.gb28181.gb.DelegatingRequestHandler;
 import com.github.gb28181.gb.DelegatingRespHandler;
 
@@ -54,7 +54,7 @@ public class SipLayerConfiguation {
   @Bean(name = "fromAddress")
   public Address createAddress(AddressFactory addressFactory, SipServerInfo sipinfo)
       throws ParseException {
-    SipURI from = addressFactory.createSipURI(sipinfo.getRealm(),
+    SipURI from = addressFactory.createSipURI(sipinfo.getId(),
         sipinfo.getIp() + ":" + sipinfo.getPort());
     Address fromNameAddress = addressFactory.createAddress(from);
     fromNameAddress.setDisplayName(sipinfo.getRealm());

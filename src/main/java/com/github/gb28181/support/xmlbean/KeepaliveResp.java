@@ -1,4 +1,4 @@
-package com.github.gb28181.xmlbean;
+package com.github.gb28181.support.xmlbean;
 
 import com.thoughtworks.xstream.annotations.XStreamAlias;
 import lombok.Data;

@@ -1,33 +1,33 @@
 package com.github.gb28181.gb;
 
 import java.util.List;
-import javax.sip.InvalidArgumentException;
+
 import javax.sip.ResponseEvent;
-import javax.sip.SipException;
+
 import com.github.gb28181.sip.ResponseHandler;
 
 public class DelegatingRespHandler implements ResponseHandler {
-  private List<ResponseHandler> resqProcessList;
+	private List<ResponseHandler> resqProcessList;
 
-  @Override
-  public void handlerResponse(ResponseEvent evt) throws InvalidArgumentException, SipException {
-    for (ResponseHandler process : resqProcessList) {
-      if (process.isSupport(evt)) {
-        process.handlerResponse(evt);
-        return;
-      }
-    }
-    throw new RuntimeException("no support request Process find");
-  }
+	@Override
+	public void handlerResponse(ResponseEvent evt) throws Exception {
+		for (ResponseHandler process : resqProcessList) {
+			if (process.isSupport(evt)) {
+				process.handlerResponse(evt);
+				return;
+			}
+		}
+		throw new RuntimeException("no support request Process find");
+	}
 
-  @Override
-  public boolean isSupport(ResponseEvent evt) {
-    return true;
-  }
+	@Override
+	public boolean isSupport(ResponseEvent evt) {
+		return true;
+	}
 
-  public DelegatingRespHandler(List<ResponseHandler> resqProcessList) {
-    super();
-    this.resqProcessList = resqProcessList;
-  }
+	public DelegatingRespHandler(List<ResponseHandler> resqProcessList) {
+		super();
+		this.resqProcessList = resqProcessList;
+	}
 
 }

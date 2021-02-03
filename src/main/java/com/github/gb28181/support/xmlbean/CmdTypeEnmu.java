@@ -1,4 +1,4 @@
-package com.github.gb28181.xmlbean;
+package com.github.gb28181.support.xmlbean;
 
 /**
  * 命令类型

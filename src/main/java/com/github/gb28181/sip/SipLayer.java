@@ -14,7 +14,9 @@ import javax.sip.TransactionTerminatedEvent;
 import javax.sip.message.Request;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
-import com.github.gb28181.Constants;
+
+import com.github.gb28181.config.Constants;
+
 import lombok.extern.slf4j.Slf4j;
 
 @Component
@@ -45,6 +47,7 @@ public class SipLayer implements SipListener {
 
   @Override
   public void processRequest(RequestEvent evt) {
+	  System.out.println(evt.getRequest().getContent());
     Request request = evt.getRequest();
     if (requestHandler.isSupport(request)) {
       try {

@@ -1,4 +1,4 @@
-package com.github.gb28181;
+package com.github.gb28181.config;
 
 public class Constants {
   
