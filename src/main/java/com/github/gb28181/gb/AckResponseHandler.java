@@ -34,7 +34,8 @@ public class AckResponseHandler implements ResponseHandler {
 	public void handlerResponse(ResponseEvent evt) throws InvalidArgumentException, SipException, ParseException {
 		log.info("ack sending");
 		Dialog dialog = evt.getDialog();
-		storeService.saveDialog(dialog.getCallId().getCallId(), dialog);
+		
+		// storeService.saveDialog(dialog.getCallId().getCallId(), dialog);
 		Request reqAck = dialog.createAck(1l);
 		SipURI requestURI = (SipURI) reqAck.getRequestURI();
 

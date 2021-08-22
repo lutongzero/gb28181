@@ -1,7 +1,6 @@
 package com.github.gb28181.support;
 
 import java.util.List;
-import java.util.Random;
 import java.util.concurrent.CopyOnWriteArrayList;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;

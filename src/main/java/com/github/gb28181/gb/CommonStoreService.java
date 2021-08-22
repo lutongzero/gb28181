@@ -1,5 +1,6 @@
 package com.github.gb28181.gb;
 
+import java.util.Collection;
 import java.util.Set;
 
 import javax.sip.Dialog;
@@ -13,6 +14,8 @@ public interface CommonStoreService {
 	void saveGbDevice(GbDevice device);
 
 	GbDevice getGbDevice(String deviceId);
+
+	Set<String> getdeviceIds();
 
 	public void saveCatalog(CatalogResp catalog);
 
@@ -32,5 +35,6 @@ public interface CommonStoreService {
 
 	public StreamInfo getStreamInfo(String callId);
 
-	DeviceTree getDeviceTree(String deviceId);
+	Collection<DeviceTree> getDeviceTree(String deviceId);
+
 }

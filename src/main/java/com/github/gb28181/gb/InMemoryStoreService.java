@@ -1,5 +1,7 @@
 package com.github.gb28181.gb;
 
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -38,7 +40,7 @@ public class InMemoryStoreService implements CommonStoreService {
 		// 处理item
 		List<DeviceItem> items = catalog.getDeviceList();
 		for (DeviceItem item : items) {
-			deviceSet.add(DeviceTree.builder().deviceId(item.getDeviceID()).name(item.getName())
+			deviceSet.add(DeviceTree.builder().deviceId(item.getDeviceID()).name(item.getName()).status(item.getStatus())
 					.parentId(item.getParentID()).build());
 
 		}
@@ -101,30 +103,14 @@ public class InMemoryStoreService implements CommonStoreService {
 	}
 
 	@Override
-	public DeviceTree getDeviceTree(String deviceId) {
-		DeviceTree device = DeviceTree.builder().deviceId(deviceId).name("默认").build();
-		Set<DeviceTree> set = deviceTreeMap.get(deviceId);
-		if (set == null) {
-			return device;
-		}
-		setTree(set, device);
-		return device;
+	public Collection<DeviceTree> getDeviceTree(String deviceId) {
+
+		return deviceTreeMap.get(deviceId) == null ? new ArrayList<DeviceTree>(0) : deviceTreeMap.get(deviceId);
 	}
 
-	private void setTree(Set<DeviceTree> set, DeviceTree device) {
-		Set<DeviceTree> children = device.getChildren();
-
-		for (DeviceTree d : set) {
-			if (d.getParentId().equals(device.getDeviceId())) {
-				children.add(d);
-			}
-
-		}
-
-		for (DeviceTree d : children) {
-
-			setTree(set, d);
-		}
-
+	@Override
+	public Set<String> getdeviceIds() {
+		return deviceMap.keySet();
 	}
+
 }

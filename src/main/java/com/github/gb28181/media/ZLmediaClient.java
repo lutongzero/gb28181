@@ -13,8 +13,8 @@ public interface ZLmediaClient {
 	 * 关闭流
 	 */
 	@GetMapping("/index/api/close_streams")
-	CsResp closeStreams(@RequestParam("secret") String secret, @RequestParam("stream") String stream,
-			@RequestParam("force") int force);
+	CsResp closeStreams(@RequestParam("secret") String secret, @RequestParam("app") String app,
+			@RequestParam("stream") String stream, @RequestParam("force") int force);
 
 	/***
 	 * 打开rtp端口
@@ -28,6 +28,19 @@ public interface ZLmediaClient {
 	@GetMapping("/index/api/openRtpServer")
 	OpenRtpResp openRtpServer(@RequestParam("secret") String secret, @RequestParam("port") int port,
 			@RequestParam("enable_tcp") int enable_tcp, @RequestParam("stream_id") String stream_id);
+
+	/***
+	 * 截图
+	 * 
+	 * @param secret
+	 * @param url
+	 * @param timeout_sec
+	 * @param expire_sec
+	 * @return
+	 */
+	@GetMapping(value = "/index/api/getSnap")
+	byte []  getSnap(@RequestParam("secret") String secret, @RequestParam("url") String url,
+			@RequestParam("timeout_sec") int timeout_sec, @RequestParam("expire_sec") int expire_sec);
 
 	@Data
 	public static class R<T> {

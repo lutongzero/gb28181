@@ -1,14 +1,15 @@
 package com.github.gb28181.service;
 
 import java.text.ParseException;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.Map;
 
 import javax.annotation.Resource;
 import javax.sdp.SdpException;
-import javax.sip.ClientTransaction;
-import javax.sip.Dialog;
 import javax.sip.InvalidArgumentException;
 import javax.sip.SipException;
 import javax.sip.SipProvider;
@@ -94,8 +95,9 @@ public class RequestMessageService {
 	 * 
 	 * @return streamInfo
 	 */
-	public StreamInfo sendInviate(GbDevice device, String channelId)
+	public StreamInfo play(GbDevice device, String channelId)
 			throws SdpException, ParseException, InvalidArgumentException, SipException {
+
 		Address concatAddress = addressFactory.createAddress(addressFactory.createSipURI(sipinfo.getId(),
 				sipinfo.getIp().concat(":").concat(String.valueOf(sipinfo.getPort()))));
 		Request request = createRequest(device, Request.INVITE, channelId);
@@ -108,11 +110,10 @@ public class RequestMessageService {
 		streamInfo.setTransport("TCP");
 		streamInfo.setSsrc(Integer.toHexString(Integer.parseInt(ssrc)));
 		streamInfo.setDeviceId(device.getDeviceId());
-		
-		 OpenRtpResp openRtpServer = mediaClient.openRtpServer(mediaSecrt, 0, 1, channelId);
-		 
-		String content = createPlaySessionDescription(channelId, sipinfo.getIp(), sipinfo.getMeidaIp(),
-				openRtpServer.getPort(), true, false, "Play", ssrc);
+
+		OpenRtpResp openRtpServer = mediaClient.openRtpServer(mediaSecrt, 0, 1, channelId);
+
+		String content = createPlayContent(channelId, openRtpServer.getPort(), true, ssrc);
 		request.setContent(content, contentTypeHeader);
 		// Subject
 		SubjectHeader subjectHeader = headerFactory
@@ -123,26 +124,49 @@ public class RequestMessageService {
 		CallIdHeader callIdHeader = (CallIdHeader) request.getHeader(CallIdHeader.NAME);
 		streamInfo.setCallId(callIdHeader.getCallId());
 		storeService.saveStreamInfo(streamInfo);
-		
 		return streamInfo;
 	}
 
-	public void sendBye(String callId) throws SipException {
-		StreamInfo streamInfo = storeService.getStreamInfo(callId);
-		Dialog dialog = streamInfo.getDialog();
-		if (dialog != null) {
-			Request request = dialog.createRequest(Request.BYE);
-			ClientTransaction clientTransaction = getSipProvider(request).getNewClientTransaction(request);
-			dialog.sendRequest(clientTransaction);
-			log.info("sendRequest >>> {}", request);
-			storeService.removeStreamInfo(callId);
-		}
+	public StreamInfo playback(GbDevice device, String channelId, LocalDateTime start, LocalDateTime end, String userId)
+			throws Exception {
+		Address concatAddress = addressFactory.createAddress(addressFactory.createSipURI(sipinfo.getId(),
+				sipinfo.getIp().concat(":").concat(String.valueOf(sipinfo.getPort()))));
+		Request request = createRequest(device, Request.INVITE, channelId);
+		request.addHeader(headerFactory.createContactHeader(concatAddress));
+		ContentTypeHeader contentTypeHeader = headerFactory.createContentTypeHeader("Application", "SDP");
+		String ssrc = ssrcManager.getSsrc(true);
+		StreamInfo streamInfo = new StreamInfo();
+		streamInfo.setChannelId(channelId);
+		streamInfo.setCreateDate(new Date());
+		streamInfo.setTransport("TCP");
+		streamInfo.setSsrc(Integer.toHexString(Integer.parseInt(ssrc)));
+		streamInfo.setDeviceId(device.getDeviceId());
+
+		OpenRtpResp openRtpServer = mediaClient.openRtpServer(mediaSecrt, 0, 1, userId + channelId);
+
+		String content = createPlayBackContent(channelId, openRtpServer.getPort(), true, ssrc, start, end);
+		request.setContent(content, contentTypeHeader);
+		// Subject
+		SubjectHeader subjectHeader = headerFactory
+				.createSubjectHeader(String.format("%s:%s,%s:%s", channelId, ssrc, sipinfo.getId(), 0));
+		request.addHeader(subjectHeader);
+		sendRequest(request, device.getTransport());
+
+		CallIdHeader callIdHeader = (CallIdHeader) request.getHeader(CallIdHeader.NAME);
+		streamInfo.setCallId(callIdHeader.getCallId());
+		storeService.saveStreamInfo(streamInfo);
+		return streamInfo;
+
+	}
+
+	public void closeStream(String app, String stream) {
+		mediaClient.closeStreams(mediaSecrt, app, stream, 1);
 
 	}
 
 	private void sendRequest(Request request, String protocol) throws SipException {
 		SipProvider sipProvider = getSipProvider(protocol);
-		System.out.println("send :" + request);
+		log.info("sip消息即将发送{}:", request);
 		sipProvider.sendRequest(request);
 
 	}
@@ -180,33 +204,38 @@ public class RequestMessageService {
 		return sp;
 	}
 
-	private SipProvider getSipProvider(Request request) {
-		ViaHeader header = (ViaHeader) request.getHeader(ViaHeader.NAME);
-		return getSipProvider(header.getProtocol());
-
-	}
-
-	/**
-	 * SDP 创建
-	 * 
-	 * @param sessionId   源id 本机sip编码
-	 * @param oip         信令服务器ip
-	 * @param mIp         媒体服务器ip
-	 * @param mPort       媒体服务器端口
-	 * @param isTcp       tcp?udp
-	 * @param sessionName play
-	 * @param ssrc        序列号
-	 * 
-	 * 
-	 */
-	private static String createPlaySessionDescription(String sessionId, String oip, String mIp, int mPort,
-			boolean isTcp, boolean isActive, String sessionName, String ssrc) {
+	String createPlayContent(String channelId, int mPort, boolean isTcp, String ssrc) {
 		StringBuffer content = new StringBuffer(200);
 		content.append("v=0\r\n");
-		content.append("o=" + sessionId + " 0 0 IN IP4 " + oip + "\r\n");
-		content.append("s=" + sessionName + "\r\n");
-		content.append("c=IN IP4 " + mIp + "\r\n");
+		content.append("o=" + channelId + " 0 0 IN IP4 " + sipinfo.getIp() + "\r\n");
+		content.append("s=Play\r\n");
+		content.append("c=IN IP4 " + sipinfo.getMeidaIp() + "\r\n");
 		content.append("t=0 0\r\n");
+		content.append("m=video " + mPort + " " + (isTcp ? "TCP/" : "") + "RTP/AVP 96 98 97\r\n");
+		content.append("a=recvonly\r\n");
+		content.append("a=rtpmap:96 PS/90000\r\n");
+		content.append("a=rtpmap:98 H264/90000\r\n");
+		content.append("a=rtpmap:97 MPEG4/90000\r\n");
+
+		if (isTcp) {
+			content.append("a=setup:passive\r\n");
+			// content.append("a=connection:new\r\n");
+		}
+
+		content.append("y=" + ssrc + "\r\n");
+		return content.toString();
+	}
+
+	private String createPlayBackContent(String channelId, int mPort, boolean isTcp, String ssrc, LocalDateTime start,
+			LocalDateTime end) {
+		StringBuffer content = new StringBuffer(200);
+		content.append("v=0\r\n");
+		content.append("o=" + channelId + " 0 0 IN IP4 " + sipinfo.getIp() + "\r\n");
+		content.append("s=Playback\r\n");
+		content.append("u=" + channelId + ":0\r\n");
+		content.append("c=IN IP4 " + sipinfo.getMeidaIp() + "\r\n");
+		content.append("t=" + start.toEpochSecond(ZoneOffset.of("+8")) + " " + end.toEpochSecond(ZoneOffset.of("+8"))
+				+ "\r\n");
 		content.append("m=video " + mPort + " " + (isTcp ? "TCP/" : "") + "RTP/AVP 96 98 97\r\n");
 		content.append("a=recvonly\r\n");
 		content.append("a=rtpmap:96 PS/90000\r\n");
@@ -226,4 +255,111 @@ public class RequestMessageService {
 		return headerFactory.createFromHeader(address, RandomStringUtils.randomNumeric(5));
 
 	}
+
+	/**
+	 * 云台指令码计算
+	 *
+	 * @param leftRight 镜头左移右移 0:停止 1:左移 2:右移
+	 * @param upDown    镜头上移下移 0:停止 1:上移 2:下移
+	 * @param inOut     镜头放大缩小 0:停止 1:缩小 2:放大
+	 * @param moveSpeed 镜头移动速度 默认 0XFF (0-255)
+	 * @param zoomSpeed 镜头缩放速度 默认 0X1 (0-255)
+	 */
+	private static String cmdString(int leftRight, int upDown, int inOut, int moveSpeed, int zoomSpeed) {
+		int cmdCode = 0;
+		if (leftRight == 2) {
+			cmdCode |= 0x01; // 右移
+		} else if (leftRight == 1) {
+			cmdCode |= 0x02; // 左移
+		}
+		if (upDown == 2) {
+			cmdCode |= 0x04; // 下移
+		} else if (upDown == 1) {
+			cmdCode |= 0x08; // 上移
+		}
+		if (inOut == 2) {
+			cmdCode |= 0x10; // 放大
+		} else if (inOut == 1) {
+			cmdCode |= 0x20; // 缩小
+		}
+		StringBuilder builder = new StringBuilder("A50F01");
+		String strTmp;
+		strTmp = String.format("%02X", cmdCode);
+		builder.append(strTmp, 0, 2);
+		strTmp = String.format("%02X", moveSpeed);
+		builder.append(strTmp, 0, 2);
+		builder.append(strTmp, 0, 2);
+		strTmp = String.format("%X", zoomSpeed);
+		builder.append(strTmp, 0, 1).append("0");
+		// 计算校验码
+		int checkCode = (0XA5 + 0X0F + 0X01 + cmdCode + moveSpeed + moveSpeed + (zoomSpeed /* << 4 */ & 0XF0)) % 0X100;
+		strTmp = String.format("%02X", checkCode);
+		builder.append(strTmp, 0, 2);
+		return builder.toString();
+	}
+
+	/**
+	 * 云台控制，支持方向与缩放控制
+	 * 
+	 * @param device    控制设备
+	 * @param channelId 预览通道
+	 * @param leftRight 镜头左移右移 0:停止 1:左移 2:右移
+	 * @param upDown    镜头上移下移 0:停止 1:上移 2:下移
+	 * @param inOut     镜头放大缩小 0:停止 1:缩小 2:放大
+	 * @param moveSpeed 镜头移动速度
+	 * @param zoomSpeed 镜头缩放速度
+	 * @throws Exception
+	 * @throws SipException
+	 * @throws ParseException
+	 */
+	public void ptzCmd(GbDevice device, String channelId, int leftRight, int upDown, int inOut, int moveSpeed,
+			int zoomSpeed) throws ParseException, SipException, Exception {
+		String cmdStr = cmdString(leftRight, upDown, inOut, moveSpeed, zoomSpeed);
+		StringBuffer ptzXml = new StringBuffer(200);
+		ptzXml.append("<?xml version=\"1.0\" ?>");
+		ptzXml.append("<Control>");
+		ptzXml.append("<CmdType>DeviceControl</CmdType>");
+		ptzXml.append("<SN>" + snManager.getSN() + "</SN>");
+		ptzXml.append("<DeviceID>" + channelId + "</DeviceID>");
+		ptzXml.append("<PTZCmd>" + cmdStr + "</PTZCmd>");
+		ptzXml.append("<Info>");
+		ptzXml.append("</Info>");
+		ptzXml.append("</Control>");
+
+		Request request = createRequest(device, Request.MESSAGE, device.getDeviceId());
+		request.setContent(ptzXml.toString(), headerFactory.createContentTypeHeader("Application", "MANSCDP+xml"));
+		sendRequest(request, device.getTransport());
+
+	}
+
+	public void recordInfoQuery(GbDevice device, String channelId, LocalDateTime start, LocalDateTime end)
+			throws Exception {
+
+		DateTimeFormatter df = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
+		StringBuffer recordInfoXml = new StringBuffer(200);
+		recordInfoXml.append("<?xml version=\"1.0\" encoding=\"GB2312\"?>");
+		recordInfoXml.append("<Query>");
+		recordInfoXml.append("<CmdType>RecordInfo</CmdType>");
+		recordInfoXml.append("<SN>" + (int) ((Math.random() * 9 + 1) * 100000) + "</SN>");
+		recordInfoXml.append("<DeviceID>" + channelId + "</DeviceID>");
+		recordInfoXml.append("<StartTime>" + start.format(df) + "</StartTime>");
+		recordInfoXml.append("<EndTime>" + end.format(df) + "</EndTime>");
+		recordInfoXml.append("<Secrecy>0</Secrecy>");
+		// 大华NVR要求必须增加一个值为all的文本元素节点Type
+		recordInfoXml.append("<Type>all</Type>");
+		recordInfoXml.append("</Query>");
+
+		Request request = createRequest(device, Request.MESSAGE, device.getDeviceId());
+		request.setContent(recordInfoXml.toString(),
+				headerFactory.createContentTypeHeader("Application", "MANSCDP+xml"));
+		sendRequest(request, device.getTransport());
+		return;
+	}
+
+	public static void main(String[] args) {
+		DateTimeFormatter df = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
+		String format = LocalDateTime.now().format(df);
+		System.out.println(format);
+	}
+
 }

@@ -36,6 +36,7 @@ public class CatalogRequestHandler extends AbstractCommonRequestHandler {
 		if (bytes != null) {
 			content = new String(bytes);
 		}
+		
 		return Request.MESSAGE.equals(method) && content != null && content.contains("CmdType")
 				&& content.contains("Catalog");
 	}

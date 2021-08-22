@@ -13,11 +13,14 @@ import javax.sip.message.Request;
 import javax.sip.message.Response;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 import com.github.gb28181.config.SipServerInfo;
 import com.github.gb28181.entity.GbDevice;
+import com.github.gb28181.service.RequestMessageService;
+import com.github.gb28181.support.xmlbean.CmdTypeEnmu;
 
 import gov.nist.javax.sip.clientauthutils.DigestServerAuthenticationHelper;
 import gov.nist.javax.sip.header.AuthenticationHeader;
@@ -42,6 +45,10 @@ public class RegisterRequestHandler extends AbstractCommonRequestHandler {
 	private HeaderFactory headerFactory;
 	@Autowired
 	private CommonStoreService storeService;
+	@Autowired
+	private RequestMessageService rms;
+	@Value("${skipReg}")
+	private boolean skipReg;
 
 	public RegisterRequestHandler() throws GeneralSecurityException {
 		super();
@@ -57,9 +64,8 @@ public class RegisterRequestHandler extends AbstractCommonRequestHandler {
 
 		}
 		Response response = null;
-		boolean chackpwd = false;
 
-		// 如果携带认证信息，验证密码
+		boolean chackpwd = false; // 如果携带认证信息，验证密码 i
 		if (authorization != null) {
 			chackpwd = digestHelper.doAuthenticatePlainTextPassword(sipReq, info.getPassword());
 			if (!chackpwd) {
@@ -68,27 +74,29 @@ public class RegisterRequestHandler extends AbstractCommonRequestHandler {
 		}
 
 		// 如果未携带或者密码错误,添加验证信息，返回401
-		if (authorization == null || !chackpwd) {
+		if (authorization == null || !chackpwd || !skipReg) {
 			response = messageFactory.createResponse(Response.UNAUTHORIZED, sipReq);
 			// 添加验证信息
 			digestHelper.generateChallenge(headerFactory, response, info.getRealm());
 		}
 
 		// 验证成功
-		if (authorization != null && chackpwd) {
+		if (authorization != null && chackpwd || skipReg) {
 			response = messageFactory.createResponse(Response.OK, sipReq);
 			response.addHeader(headerFactory.createDateHeader(Calendar.getInstance(Locale.ENGLISH)));
 			response.addHeader(sipReq.getHeader(ContactHeader.NAME));
 			response.addHeader(sipReq.getExpires());
 
 			// 保存
-			saveDevice(sipReq);
+			GbDevice device = saveDevice(sipReq);
+			
+			rms.sendCommonMessage(device, CmdTypeEnmu.Catalog);
 		}
 		return response;
 
 	}
 
-	private void saveDevice(Request req) {
+	private GbDevice saveDevice(Request req) {
 		GbDevice device = GbDevice.createDevice(req);
 		GbDevice gbDevice = storeService.getGbDevice(device.getDeviceId());
 		if (gbDevice == null) {
@@ -103,9 +111,9 @@ public class RegisterRequestHandler extends AbstractCommonRequestHandler {
 			gbDevice.setRport(device.getRport());
 			storeService.saveGbDevice(gbDevice);
 		}
-
+		
 		log.info("device {} register success! ", device.getDeviceId());
-
+		return device;
 	}
 
 	@Override
